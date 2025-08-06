@@ -1,0 +1,208 @@
+# Interbanking API 
+
+Sistema de gestión de empresas y transferencias que implementa arquitectura hexagonal (Clean Architecture) con NestJS, proporcionando endpoints REST y una simple funcionalidad serverless con AWS Lambda.
+
+## 🏗️ Arquitectura y Patrones
+
+### Arquitectura Hexagonal (Clean Architecture)
+- **Domain Layer**: Entidades, value objects y servicios de dominio
+- **Application Layer**: Casos de uso y servicios de aplicación
+- **Infrastructure Layer**: Controladores, repositorios y adaptadores externos
+- **Shared Layer**: Tipos y utilidades compartidas entre módulos
+
+## 📁 Estructura del Proyecto
+
+```
+src/
+├── company/                 # Módulo de empresas
+│   ├── domain/             # Entidades, value objects y lógica de negocio
+│   │   ├── entities/       # Company entity
+│   │   ├── value-objects/  # CompanyId, Cuit, CompanyName
+│   │   ├── services/       # CompanyDomainService
+│   │   └── repositories/   # CompanyRepository interface
+│   ├── application/        # Casos de uso y servicios
+│   │   └── services/       # CompanyApplicationService
+│   └── infrastructure/     # Controladores, repositorios y adaptadores
+│       ├── controllers/    # CompanyController
+│       ├── repositories/   # SqliteCompanyRepository
+│       ├── mappers/        # CompanyMapper
+│       ├── dto/           # DTOs de entrada y salida
+│       └── lambda/        # AWS Lambda handlers
+├── transfer/               # Módulo de transferencias
+│   ├── domain/            # Entidades, value objects y lógica de negocio
+│   │   ├── entities/      # Transfer entity
+│   │   ├── value-objects/ # TransferId, Amount, AccountNumber
+│   │   ├── services/      # TransferDomainService
+│   │   └── repositories/  # TransferRepository interface
+│   ├── application/       # Casos de uso y servicios
+│   │   └── services/      # TransferApplicationService
+│   └── infrastructure/    # Controladores, repositorios y adaptadores
+│       ├── controllers/   # TransferController
+│       ├── repositories/  # SqliteTransferRepository
+│       ├── mappers/       # TransferMapper
+│       └── dto/          # DTOs de entrada y salida
+├── shared/                # Tipos y utilidades compartidas
+│   ├── types/            # Enums y tipos compartidos
+│   ├── utils/            # Utilidades de fecha y configuración
+│   └── decorators/       # Decoradores personalizados
+├── config/               # Configuración de base de datos y entorno
+├── database/             # Scripts de base de datos y seeding
+└── main.ts               # Punto de entrada
+```
+
+## 📊 Entidades Principales
+
+### Company
+- **ID**: Identificador único 
+- **CUIT**: Número de identificación fiscal 
+- **Name**: Nombre de la empresa 
+- **AdhesionDate**: Fecha de adhesión
+- **Type**: Tipo (PYME/CORPORATE)
+
+### Transfer
+- **ID**: Identificador único
+- **Amount**: Monto de la transferencia
+- **CompanyId**: ID de la empresa
+- **DebitAccount**: Cuenta de débito
+- **CreditAccount**: Cuenta de crédito
+- **CreatedAt**: Fecha de creación
+
+## 🚀 Configuración
+
+### Prerrequisitos
+- Node.js 18+
+- npm o yarn
+
+### Instalación
+```bash
+# Clonar repositorio
+git clone <repository-url>
+cd interbanking-api
+
+# Instalar dependencias
+npm install
+
+# Configurar variables de entorno
+cp env.example .env
+```
+
+### Variables de Entorno
+```env
+PORT=3000
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+```
+
+### Base de Datos y Datos de Prueba
+- **Base de datos**: SQLite persistente con TypeORM
+- **Seeds**: Datos de prueba se cargan manualmente con `npm run db:seed`
+- **Persistencia**: Los datos se mantienen entre reinicios del servidor
+- **Synchronize**: Las tablas se crean automáticamente al iniciar la aplicación
+- **Optimización**: Consultas optimizadas con JOINs para evitar filtrado en memoria
+
+## 🔧 Scripts Disponibles
+
+```bash
+# Desarrollo o ejecución local
+npm run start:dev          # Servidor con hot reload
+npm run start              # Servidor en modo desarrollo
+
+# Build
+npm run build              # Compilar TypeScript
+
+# Testing
+npm run test               # Ejecutar tests
+npm run test:watch         # Tests en modo watch
+
+# Database
+npm run db:seed            # Cargar datos de prueba
+```
+
+## 🔒 Seguridad
+
+### Medidas Implementadas
+- **Helmet**: Headers de seguridad HTTP
+- **Rate Limiting**: Límite de 100 requests por IP cada 15 minutos
+- **CORS**: Configuración restrictiva de orígenes permitidos
+- **Validation Pipe**: Validación estricta de entrada con whitelist
+- **Class Validator**: Validación de DTOs con decoradores
+- **Value Objects**: Validaciones de dominio en entidades
+
+## 📚 Swagger Autogenerated Documentation for test endpoints
+
+### Acceso
+- **URL**: `http://localhost:3000/api`
+- **Configuración**: Automática con `@nestjs/swagger`
+
+### Endpoints Documentados
+
+#### Companies
+- `GET /companies` - Obtener todas las empresas
+- `GET /companies/:id` - Obtener empresa por ID
+- `POST /companies` - Crear nueva empresa
+- `DELETE /companies/:id` - Eliminar empresa
+- `GET /companies/transfers?period=last_month` - Empresas con transferencias en el último mes
+- `GET /companies/adhesions?period=last_month` - Empresas adheridas en el último mes
+
+#### Transfers
+- `GET /transfers` - Obtener todas las transferencias
+- `GET /transfers/:id` - Obtener transferencia por ID
+- `POST /transfers` - Crear nueva transferencia
+- `DELETE /transfers/:id` - Eliminar transferencia
+
+
+## ☁️ AWS Lambda - Company Adhesion
+
+### Funcionalidad
+Lambda function para procesar adhesiones de empresas, validar datos y almacenar en base de datos.
+
+### Integración con el Sistema
+Integraría la Lambda como adaptador de entrada via API Gateway por ejemplo reutilizando las reglas de negocio implementadas. La Lambda importaría y utilizaría exactamente los mismos servicios de dominio y aplicación que usa la API REST. Con este enfoque también se obtiene flexibilidad, ya que se puede cambiar la base de datos sin modificar la lógica (por ejemplo utilizar Dynamo para producción). Y esto sumado a los beneficios de las implementaciones serverless (escalabilidad automática, pago por uso, alta disponibilidad, entre otros).
+
+### Estructura de Archivos
+```
+src/company/infrastructure/lambda/
+├── company-adhesion.handler.ts    # Punto de entrada principal
+└── types.ts                       # Tipos AWS Lambda
+
+src/shared/lambda/
+└── initialization.ts              # Configuración inicial de Lambda
+```
+
+#### Descripción de Archivos
+
+**`company-adhesion.handler.ts`**
+- **Propósito**: Handler principal de la Lambda Function para adhesión de empresas
+- **Funciones**: 
+  - Parsea eventos de API Gateway
+  - Valida campos requeridos (cuit, name, adhesionDate, type)
+  - Utiliza servicios de aplicación existentes para crear empresa
+  - Retorna respuesta estructurada con success/error
+- **Integración**: Reutiliza CompanyApplicationService y lógica de dominio
+
+**`types.ts`**
+- **Propósito**: Definición de tipos para AWS Lambda (APIGatewayProxyEvent, APIGatewayProxyResult)
+
+**`initialization.ts`**
+- **Propósito**: Configuración inicial de servicios para Lambda
+- **Funciones**:
+  - Inicializa conexión a base de datos SQLite
+  - Configura repositorios y servicios de aplicación
+  - Optimiza reutilización de conexiones en contenedor Lambda
+
+### Input/Output
+```json
+// Input
+{
+  "cuit": "20-12345678-9",
+  "name": "Empresa Ejemplo S.A.",
+  "adhesionDate": "2024-01-15",
+  "type": "PYME"
+}
+
+// Output
+{
+  "success": true,
+  "message": "Company successfully adhered",
+  "companyId": "generated-uuid-123"
+}
+```
